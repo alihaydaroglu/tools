@@ -1,12 +1,10 @@
 import numpy as n
 
 # import autograd.numpy as n
-import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from scipy import linalg
 
 
-from . import mathfuncs as math
 from . import utils
 
 

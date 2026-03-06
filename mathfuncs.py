@@ -4,7 +4,10 @@ from scipy.ndimage import gaussian_filter1d, uniform_filter1d
 from scipy import stats
 from scipy import fft
 from scipy.special import gamma as gammafunct
+from scipy.special import kv
 from scipy.stats import gennorm
+from scipy.optimize import curve_fit
+from statsmodels.nonparametric import smoothers_lowess as slw
 
 # import sympy as sp
 from scipy.special import kv as _besselk, gamma as _gammafunct
@@ -969,9 +972,6 @@ def sample_generalized_normal(beta, size, loc=0, scale=1, seed=None):
     return gennorm.rvs(beta, loc=loc, scale=scale, size=size, random_state=rng)
 
 
-from scipy.special import kv
-
-
 def matern_kernel_nd(x, scale, nu=0.5, D=1, n=n):
     """
     Isotropic Matérn kernel k(r) where r = ||x|| in R^D.
@@ -1189,9 +1189,6 @@ def get_powerlaw(ss, trange):
     return alpha, ypred, b[1]
 
 
-from scipy.optimize import curve_fit
-
-
 def gauss(x, H, A, x0, sigma):
     """
     gaussian with mean x0, std sigma, amplitude A
@@ -1313,9 +1310,6 @@ def zig_cdfs(zinfs, gshapes, gscales, npts=101, vmax=10):
     zig_cdfs_m[0] = zinfs
     zig_cdfs_m[1:] = zig_cdfs_m[0] + n.cumsum(zig_pdfs_m[1:] / zig_pdfs_m[1:].sum(axis=0), axis=0) * (1 - zig_cdfs_m[0])
     return xs, zig_cdfs_m
-
-
-from statsmodels.nonparametric import smoothers_lowess as slw
 
 
 def lowess_fit(xs, ys, frac=0.1, npts=10000, nxs=30, xpct=99, seed=2358, xvals=None, it=3):

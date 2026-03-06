@@ -1,14 +1,11 @@
-from networkx import density
 import numpy as n
-import os
+import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib as mpl
+import matplotlib.colors as mcolors
 from . import mathfuncs as math
 from . import utils
-from . import spatial
 from scipy import stats
-import colorcet
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 colors = ["#90be6d", "#e98a15", "#b26c98", "#1b9aaa", "#3a405a"]
 
@@ -1011,7 +1008,10 @@ def plot_response_projections(
     if subplot_shape[1] == 1:
         for i in range(len(axs)):
             axs[i] = [axs[i]]
-    cmap = plt.get_cmap("cet_glasbey_dark", lut=nstim)
+    try:
+        cmap = plt.get_cmap(cmap, lut=nstim)
+    except ValueError:
+        cmap = plt.get_cmap("tab20", lut=nstim)
     for i in range(len(axs)):
         for j in range(len(axs[0])):
             ax = axs[i][j]
@@ -1087,7 +1087,17 @@ def scatter(
         )
 
     if binned:
-        xx, yy = spatial.bin_by_coord(xs, ys, mean_bins=True, std_bins=True, **binned_params)
+        n_bins = binned_params.get("n_bins", 20)
+        x_edges = binned_params.get("x_edges", None)
+        xx, yy = utils.bin_by_coord(
+            xs,
+            ys,
+            n_bins=n_bins,
+            bins=x_edges,
+            mean_bins=True,
+            std_bins=True,
+            shift_bins=True,
+        )
         ax.plot(xx, yy[:, 0], **binned_line_params)
         ax.fill_between(
             xx,
@@ -1202,12 +1212,6 @@ def plot_cell_img(image, med, square_pix=10, **kwargs):
 
     return f, ax
 
-
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import matplotlib as mpl
-
-
 def diverging_cmap(low_color="blue", high_color="red", mid_color="white", name="diverging", nan_color="lightgrey"):
     """
     Creates a diverging colormap with a specified color at the center (zero value)
@@ -1313,29 +1317,24 @@ def plot_spatial_corr_dist(
 
     return f, axs
 
-
-import numpy as np
-import matplotlib.colors as mcolors
-
-
 class CategoricalColormap(mcolors.Colormap):
     # untested code from deepseek
     def __init__(self, colors_rgba, categories, name="categorical_cmap"):
         super().__init__(name=name, N=len(categories))
         self.lookup = []
         for cat, color in zip(categories, colors_rgba):
-            if isinstance(cat, float) and np.isnan(cat):
+            if isinstance(cat, float) and n.isnan(cat):
                 # Check for NaN
-                cond = lambda X, c=cat: np.isnan(X)
+                cond = lambda X, c=cat: n.isnan(X)
             else:
                 # Check for exact match, including inf
                 cond = lambda X, c=cat: X == c
             self.lookup.append((cond, color))
 
     def __call__(self, X, alpha=None, bytes=False):
-        X = np.asarray(X)
-        rgba = np.zeros(X.shape + (4,), dtype=np.float32)
-        unassigned = np.ones(X.shape, dtype=bool)
+        X = n.asarray(X)
+        rgba = n.zeros(X.shape + (4,), dtype=n.float32)
+        unassigned = n.ones(X.shape, dtype=bool)
 
         for condition, color in self.lookup:
             mask = condition(X) & unassigned
@@ -1346,7 +1345,7 @@ class CategoricalColormap(mcolors.Colormap):
             rgba[..., 3] = alpha
 
         if bytes:
-            rgba = (rgba * 255).astype(np.uint8)
+            rgba = (rgba * 255).astype(n.uint8)
 
         return rgba.squeeze()
 
@@ -1354,10 +1353,6 @@ class CategoricalColormap(mcolors.Colormap):
 def categorical_cmap(colors, categories):
     colors_rgba = [mcolors.to_rgba(c) for c in colors]
     return CategoricalColormap(colors_rgba, categories)
-
-
-import imageio
-
 
 def save_gif_from_timeseries(
     arr,
@@ -1676,7 +1671,7 @@ def save_cortical_movie(
                 ax.axis("off")
                 fig.tight_layout(pad=0)
                 fig.canvas.draw()
-                arr = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                arr = _np.frombuffer(fig.canvas.tostring_rgb(), dtype=_np.uint8)
                 arr = arr.reshape(fig.canvas.get_width_height()[::-1] + (3,))
                 ts_path = savedir / f"timestamp_{i_idx:06d}.png"
                 _imageio.imwrite(str(ts_path), arr)

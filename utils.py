@@ -1,7 +1,6 @@
 import os
 import numpy as n
 from multiprocessing import shared_memory
-import cv2
 from scipy import ndimage
 
 
@@ -113,6 +112,100 @@ def flatten_lower_tri(matrix, k=-1):
     trilidx = n.tril_indices_from(matrix, -1)
     flat_matrix = matrix[trilidx]
     return flat_matrix
+
+
+def bin_by_coord(
+    coords,
+    vals,
+    n_bins=10,
+    bins=None,
+    mean_bins=False,
+    positive=False,
+    std_bins=False,
+    shift_bins=True,
+):
+    """
+    Bin 1D values by 1D coordinates.
+
+    Inspired by the spatial binning utility in the larger codebase.
+
+    Args:
+        coords (ndarray): 1D coordinates (x-values) for each sample.
+        vals (ndarray): 1D values to bin (y-values), same length as coords.
+        n_bins (int, optional): Number of bins if `bins` is None.
+        bins (ndarray, optional): Bin edges. If provided, overrides `n_bins`.
+        mean_bins (bool, optional): Return means (and optionally stds) per bin.
+        positive (bool, optional): Keep only positive values within each bin.
+        std_bins (bool, optional): With `mean_bins=True`, also return std per bin.
+        shift_bins (bool, optional): Return bin centers instead of edges.
+
+    Returns:
+        tuple:
+            - x bins (centers if shift_bins else edges)
+            - binned output:
+                * list of arrays when mean_bins=False
+                * (n_bins,) means when mean_bins=True and std_bins=False
+                * (n_bins, 2) [mean, std] when mean_bins=True and std_bins=True
+    """
+    coords = n.asarray(coords).ravel()
+    vals = n.asarray(vals).ravel()
+
+    if coords.shape != vals.shape:
+        raise ValueError("coords and vals must have the same shape")
+
+    finite_mask = n.isfinite(coords) & n.isfinite(vals)
+    coords = coords[finite_mask]
+    vals = vals[finite_mask]
+    if coords.size == 0:
+        raise ValueError("No finite coordinate/value pairs to bin")
+
+    if bins is None:
+        n_bins = int(n_bins)
+        if n_bins < 1:
+            raise ValueError("n_bins must be >= 1")
+        bins = n.linspace(coords.min(), coords.max(), n_bins + 1)
+    else:
+        bins = n.asarray(bins)
+        if bins.ndim != 1 or bins.size < 2:
+            raise ValueError("bins must be a 1D array with at least 2 edges")
+        n_bins = len(bins) - 1
+
+    coords_argsort = n.argsort(coords)
+    coords_sorted = coords[coords_argsort]
+    vals_sorted = vals[coords_argsort]
+
+    binned = [[] for _ in range(n_bins)]
+    bin_idx = 0
+    for i in range(len(coords_sorted)):
+        while bin_idx < (n_bins - 1) and coords_sorted[i] > bins[bin_idx + 1]:
+            bin_idx += 1
+        if bins[bin_idx] <= coords_sorted[i] <= bins[bin_idx + 1]:
+            binned[bin_idx].append(vals_sorted[i])
+
+    for i in range(n_bins):
+        binned[i] = n.asarray(binned[i])
+        if positive:
+            binned[i] = binned[i][binned[i] > 0]
+
+    if mean_bins:
+        if std_bins:
+            out = n.full((n_bins, 2), n.nan)
+            for i in range(n_bins):
+                if binned[i].size > 0:
+                    out[i, 0] = n.nanmean(binned[i])
+                    out[i, 1] = n.nanstd(binned[i])
+            binned = out
+        else:
+            out = n.full(n_bins, n.nan)
+            for i in range(n_bins):
+                if binned[i].size > 0:
+                    out[i] = n.nanmean(binned[i])
+            binned = out
+
+    if shift_bins:
+        bins = (bins[1:] + bins[:-1]) / 2
+
+    return bins, binned
 
 
 def make_ticks(min, max, num, round=10):
