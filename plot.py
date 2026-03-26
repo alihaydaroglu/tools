@@ -21,7 +21,8 @@ colors = ["#90be6d", "#e98a15", "#b26c98", "#1b9aaa", "#3a405a"]
 mpl.rcParams["savefig.dpi"] = 200
 mpl.rcParams["savefig.bbox"] = "tight"
 mpl.rcParams["savefig.pad_inches"] = 0.1
-mpl.rcParams["font.family"] = "Arial"
+mpl.rcParams["font.family"] = "sans-serif"
+mpl.rcParams["font.sans-serif"] = ["Arial", "Liberation Sans", "DejaVu Sans"]
 mpl.rcParams["font.size"] = 12
 mpl.rcParams["axes.titlesize"] = 12
 mpl.rcParams["axes.labelsize"] = 12
@@ -2262,4 +2263,160 @@ def plot_percentiles(xs, ys, percentiles, stds=None, cmap=None, ax=None, legend=
 
     if legend:
         ax.legend()
+
+
+def pairplot(
+    data,
+    *,
+    nc=None,
+    labels=None,
+    dim_labels=None,
+    axs=None,
+    square_axes=False,
+    share_limits=False,
+    percentile_limit=None,
+    density_threshold=100,
+    **density_scatter_kwargs,
+):
+    """Pairwise scatter / histogram matrix.
+
+    Diagonal panels show histograms; off-diagonal panels show scatter plots
+    (coloured by density when n_points > density_threshold).
+
+    Parameters
+    ----------
+    data : ndarray (n_samples, n_dims) or list of such arrays
+        One or more datasets to overlay.  Each must have the same number of
+        columns (dimensions).
+    nc : int, optional
+        How many dimensions to include.  Defaults to all columns.
+    labels : list of str, optional
+        One label per dataset in *data* (used in legend).
+    dim_labels : list of str, optional
+        Axis labels for each dimension.  Defaults to '0', '1', ...
+    axs : 2-D array of Axes, optional
+        Pre-existing nc x nc Axes grid.  Created if not supplied.
+    square_axes : bool
+        If True, each off-diagonal panel uses the same numerical range on
+        both axes (the union of the two dimensions' ranges).
+    share_limits : bool
+        If True, every panel shares one global limit (implies square_axes).
+    percentile_limit : float or None
+        None  -> axis limits = data range +/- 5% padding.
+        Value in (50, 100] -> symmetric percentile clip, e.g. 90 gives the
+        [10th, 90th] percentile window (passing 10 gives the same result).
+    density_threshold : int
+        Use density_scatter when a dataset exceeds this many points.
+    **density_scatter_kwargs
+        Forwarded to density_scatter for dense panels.
+
+    Returns
+    -------
+    axs : ndarray of Axes, shape (nc, nc)
+    """
+    # normalise input
+    if isinstance(data, np.ndarray):
+        series_list = [data]
+    else:
+        series_list = [np.asarray(d) for d in data]
+
+    if nc is None:
+        nc = series_list[0].shape[1]
+    series_list = [s[:, :nc] for s in series_list]
+
+    n_series = len(series_list)
+    if labels is None:
+        labels = [None] * n_series
+    if dim_labels is None:
+        dim_labels = [str(i) for i in range(nc)]
+
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    colors = [default_colors[i % len(default_colors)] for i in range(n_series)]
+
+    # axis limits
+    if share_limits:
+        square_axes = True
+        global_lim = _pairplot_lim(
+            np.concatenate([s.ravel() for s in series_list]), percentile_limit
+        )
+        dim_lims = [global_lim] * nc
+    else:
+        dim_lims = [
+            _pairplot_lim(
+                np.concatenate([s[:, i] for s in series_list]), percentile_limit
+            )
+            for i in range(nc)
+        ]
+
+    # create axes
+    if axs is None:
+        fig, axs = plt.subplots(nc, nc, figsize=(2 * nc, 2 * nc))
+        plt.tight_layout(pad=0.5)
+    axs = np.atleast_2d(axs)
+
+    for i in range(nc):
+        for j in range(nc):
+            ax = axs[i, j]
+
+            if i == j:
+                xlim = dim_lims[i]
+                for s, lab, col in zip(series_list, labels, colors):
+                    kw = dict(bins=30, alpha=0.6, color=col, range=xlim)
+                    if lab is not None:
+                        kw['label'] = lab
+                    ax.hist(s[:, i], **kw)
+                ax.set_xlim(xlim)
+
+            else:
+                # scatter: dim j on x-axis, dim i on y-axis
+                if square_axes:
+                    lo = min(dim_lims[i][0], dim_lims[j][0])
+                    hi = max(dim_lims[i][1], dim_lims[j][1])
+                    xlim = ylim = (lo, hi)
+                else:
+                    xlim = dim_lims[j]
+                    ylim = dim_lims[i]
+
+                for s, lab, col in zip(series_list, labels, colors):
+                    xd, yd = s[:, j], s[:, i]
+                    if len(xd) > density_threshold:
+                        density_scatter(xd, yd, ax=ax, **density_scatter_kwargs)
+                    else:
+                        sc_kw = dict(s=5, alpha=0.6, color=col)
+                        if lab is not None:
+                            sc_kw['label'] = lab
+                        ax.scatter(xd, yd, **sc_kw)
+
+                ax.set_xlim(xlim)
+                ax.set_ylim(ylim)
+
+            # edge labels only
+            if i == nc - 1:
+                ax.set_xlabel(dim_labels[j])
+            else:
+                ax.tick_params(labelbottom=False)
+            if j == 0:
+                ax.set_ylabel(dim_labels[i])
+            else:
+                ax.tick_params(labelleft=False)
+
+    if any(l is not None for l in labels):
+        axs[0, nc - 1].legend(loc='upper right')
+
+    return axs
+
+
+def _pairplot_lim(data, percentile_limit):
+    """Compute a (lo, hi) axis limit from a flat data array."""
+    if percentile_limit is None:
+        lo, hi = float(data.min()), float(data.max())
+        pad = (hi - lo) * 0.05
+        if pad == 0:
+            pad = 0.5
+        return (lo - pad, hi + pad)
+    else:
+        p = max(min(float(percentile_limit), 100.0), 50.0)
+        lo = float(np.percentile(data, 100.0 - p))
+        hi = float(np.percentile(data, p))
+        return (lo, hi)
     return ax

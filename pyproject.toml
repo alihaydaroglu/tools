@@ -15,5 +15,8 @@ dependencies = [
 ]
 
 [tool.uv]
-package = false
 dev-dependencies = []
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["tools*"]

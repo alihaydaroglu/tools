@@ -351,7 +351,7 @@ def correlate_vectors(arr1, arr2):
     return corr
 
 
-def cov_mat(arr, nan_diag=False, dtype=n.float32, eps=1e-6):
+def cov_mat(arr, nan_diag=False, dtype=n.float32, eps=1e-6,):
     """
     compute covariance matrix of a data matrix. Similar to n.cov
 
