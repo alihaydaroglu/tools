@@ -473,7 +473,7 @@ def fill_cells_plane(coords, fill_vals, shape=None, empty=n.nan, filt=None, sque
 
 
 # light wrapper around show_img that sets cmap='RdBu_r', symmetric_cmap=True, and has the additional optional parameter
-def show_covmat(covmat, ax=None, vscale=None, nan_diag=True, **kwargs):
+def show_covmat(covmat, ax=None, fscale = 3, vscale=None, nan_diag=True, sort=None, **kwargs):
     """
     Show a covariance/correlation matrix with RdBu_r colormap, symmetric scaling.
     Args:
@@ -487,6 +487,9 @@ def show_covmat(covmat, ax=None, vscale=None, nan_diag=True, **kwargs):
     if nan_diag:
         covmat = covmat.copy()
         covmat[n.diag_indices_from(covmat)] = n.nan
+    if sort is not None:
+        covmat = covmat.copy()
+        covmat = covmat[:,sort][sort]
     cmap = "RdBu_r"
     symmetric_cmap = True
     if vscale is not None:
@@ -499,6 +502,7 @@ def show_covmat(covmat, ax=None, vscale=None, nan_diag=True, **kwargs):
         cmap=cmap,
         symmetric_cmap=symmetric_cmap,
         ax=ax,
+        figsize=(fscale,fscale),
         vminmax=vminmax,
         **kwargs,
     )
@@ -1066,6 +1070,7 @@ def scatter(
     dpi=150,
     binned=False,
     binned_params={},
+    label=None,
     binned_line_params={},
     binned_area_params={},
 ):
@@ -1075,7 +1080,7 @@ def scatter(
         xs = utils.flatten_lower_tri(xs)
         ys = utils.flatten_lower_tri(ys)
 
-    ax.scatter(xs, ys, s=size, c=color, alpha=alpha, linewidth=0, **marker_params)
+    ax.scatter(xs, ys, s=size, c=color, alpha=alpha, linewidth=0,label=label, **marker_params)
     if regression:
         slopex, interceptx, rx, px, __ = stats.linregress(xs, ys)
         xline = n.array([xs.min(), xs.max()])
