@@ -1073,12 +1073,19 @@ def scatter(
     label=None,
     binned_line_params={},
     binned_area_params={},
+    identity=False,
 ):
     if ax is None:
         f, ax = plt.subplots(figsize=figsize, dpi=dpi)
     if len(xs.shape) > 1:
         xs = utils.flatten_lower_tri(xs)
         ys = utils.flatten_lower_tri(ys)
+
+    if identity:
+        lo = min(n.min(xs), n.min(ys))
+        hi = max(n.max(xs), n.max(ys))
+        ax.plot([lo, hi], [lo, hi], color="gray", ls="--", lw=1, zorder=-10)
+        ax.set_aspect("equal")
 
     ax.scatter(xs, ys, s=size, c=color, alpha=alpha, linewidth=0,label=label, **marker_params)
     if regression:
