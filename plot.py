@@ -721,6 +721,97 @@ def show_img(
         return f, ax, axim
 
 
+def plot_raster(
+    activity,
+    labels=None,
+    ax=None,
+    neuron_axis=0,
+    sort=True,
+    category_order=None,
+    bin=None,
+    cmap="Greys",
+    boundary_color="green",
+    boundary_lw=0.5,
+    boundary_alpha=0.7,
+    boundary_ls="-",
+    label_fontsize=8,
+    label_axis="y",
+    time_bin_label=False,
+    return_order=False,
+    **show_img_kwargs,
+):
+    """Plot a neurons x time raster, sorted and labelled by cell type, with the image
+    binned for fast rendering (delegates to `show_img`).
+
+    The point of going through `show_img` with `bin` is speed: a raster is usually far
+    longer in time than the screen is wide, so binning the time axis (e.g. bin=(1,10))
+    shrinks the array `imshow` has to draw ~10x with no visible loss. Crucially the
+    type-block boundary lines and the per-type tick positions are rescaled by the
+    *neuron* bin factor so they stay aligned with the (possibly binned) image.
+
+    Parameters
+    ----------
+    activity : 2D array. `neuron_axis` says which axis indexes neurons (the other is time).
+    labels   : per-neuron category label (length = n_neurons). Drives the sort, the block
+               boundary lines, and one tick per category placed at the block centre.
+    ax       : existing axis (else a new figure is made by `show_img`).
+    sort     : if True, sort neurons by category (stable). `category_order` overrides the
+               category order (default = first-appearance order in `labels`).
+    bin      : int or (neuron_bin, time_bin), forwarded to `show_img`.
+    label_axis : 'y' (default, neurons on rows) or 'x' for the category ticks.
+    time_bin_label : relabel the time axis back to original frame units after binning.
+    return_order : also return the neuron sort order (handy to sort a matching covariance).
+    Extra **show_img_kwargs (vminmax_percentile, colorbar, figsize, ...) pass straight through.
+
+    Returns (f, ax, axim) — plus `order` if `return_order`.
+    """
+    A = np.asarray(activity)
+    if neuron_axis == 1:
+        A = A.T                                       # -> (neurons, time)
+    n_neurons = A.shape[0]
+    order = np.arange(n_neurons)
+    labS = None
+    if labels is not None:
+        labels = np.asarray(labels)
+        if sort:
+            if category_order is None:
+                cats = list(dict.fromkeys(labels))
+            else:
+                cats = [c for c in category_order if c in set(labels)]
+            pos = {c: i for i, c in enumerate(cats)}
+            order = np.argsort([pos[l] for l in labels], kind="stable")
+        A = A[order]
+        labS = labels[order]
+
+    # bin factors used to rescale boundary/tick positions after show_img bins the image
+    nb = bin[0] if isinstance(bin, tuple) else (bin if bin is not None else 1)
+    tb = bin[1] if isinstance(bin, tuple) else (bin if bin is not None else 1)
+
+    show_img_kwargs.setdefault("ticks", True)         # keep axes alive; we set our own ticks
+    show_img_kwargs.setdefault("aspect", "auto")      # fill the axes (rasters are very wide)
+    f, ax, axim = show_img(A, ax=ax, bin=bin, cmap=cmap, **show_img_kwargs)
+
+    if labS is not None:
+        bnds = np.where(labS[1:] != labS[:-1])[0] + 1
+        for b in bnds:
+            ax.axhline(b / nb - 0.5, color=boundary_color, lw=boundary_lw,
+                       alpha=boundary_alpha, ls=boundary_ls)
+        cats_present = list(dict.fromkeys(labS))
+        centers = [float(n.where(labS == c)[0].mean()) / nb for c in cats_present]
+        if label_axis == "y":
+            ax.set_yticks(centers); ax.set_yticklabels(cats_present, fontsize=label_fontsize)
+        else:
+            ax.set_xticks(centers)
+            ax.set_xticklabels(cats_present, rotation=90, fontsize=label_fontsize)
+
+    if time_bin_label and tb and tb != 1:             # x is in binned pixels -> show frames
+        ax.set_xticklabels([f"{int(x * tb)}" for x in ax.get_xticks()])
+
+    if return_order:
+        return f, ax, axim, order
+    return f, ax, axim
+
+
 def turn_off_spines(ax):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)

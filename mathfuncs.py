@@ -2229,3 +2229,43 @@ def sample_symmetric_pareto(alpha, scale=1.0, loc=0.0, size=(), seed=None, metho
         return float(Y[0])
     else:
         return Y.reshape(size)
+
+
+# ---------------------------------------------------------------------------
+# Centered-cosine / connectivity-matrix helpers
+# (used by analysis.peptide_alignment; restored here so that module runs)
+# ---------------------------------------------------------------------------
+
+def center_norm(v, eps=1e-12):
+    """Mean-center then unit-normalize a vector. Returns a zero-mean unit vector
+    so that ``center_norm(a) @ center_norm(b)`` is the Pearson correlation."""
+    c = n.asarray(v, float) - n.mean(v)
+    nrm = n.linalg.norm(c)
+    return c / (nrm + eps)
+
+
+def signed_cos(a, b):
+    """Signed centered cosine (= Pearson r) between two vectors, in [-1, 1]."""
+    return float(center_norm(a) @ center_norm(b))
+
+
+def normalize_matrix(M, kind):
+    """Non-negative connectivity-matrix normalization.
+
+    ``'unnorm'`` (identity), ``'row_norm'`` (rows sum to 1), ``'col_norm'``
+    (columns sum to 1), or ``'sinkhorn'`` (row-sum then alternating column/row
+    mean balancing — the variant used by the NPP-routing analyses).
+    """
+    M = n.asarray(M, float).copy()
+    if kind == 'unnorm':
+        return M
+    if kind == 'row_norm':
+        return M / M.sum(axis=1, keepdims=True)
+    if kind == 'col_norm':
+        return M / M.sum(axis=0, keepdims=True)
+    if kind == 'sinkhorn':
+        M = M / M.sum(axis=1, keepdims=True)
+        M = M / M.mean(axis=0, keepdims=True)
+        M = M / M.mean(axis=1, keepdims=True)
+        return M
+    raise ValueError(kind)
