@@ -9,15 +9,17 @@ from scipy import stats
 
 colors = ["#90be6d", "#e98a15", "#b26c98", "#1b9aaa", "#3a405a"]
 
-# when importing this, set the following rcParams:
-# by default, save with dpi 200
-# save without whitespace, bbox_in='tight' and pad_inched = 0.1
-# save fonts as text, not images
-# ALL fonts should be Arial.
-# Axis ticks should be 8 pts
-# axis labels should be 12 pts
-# titles should be 12 pts
-# legends should be 10 pts
+# When importing this, the house rcParams below are applied.
+#
+# FONT SIZES ARE FIXED BY ALI, 2026-09-09 — and must match
+# chantier.figstyle.apply() exactly, so that import order cannot change how a
+# figure looks. If you change one, change both.
+#   general figure text (annotations) ... 12 pt
+#   panel title ......................... 12 pt
+#   axis labels ......................... 10 pt
+#   tick labels ......................... 8 pt
+#   legend .............................. 8 pt
+# Save at dpi 200, bbox="tight", pad 0.1, text as text (never outlined), Arial.
 mpl.rcParams["savefig.dpi"] = 200
 mpl.rcParams["savefig.bbox"] = "tight"
 mpl.rcParams["savefig.pad_inches"] = 0.1
@@ -25,10 +27,27 @@ mpl.rcParams["font.family"] = "sans-serif"
 mpl.rcParams["font.sans-serif"] = ["Arial", "Liberation Sans", "DejaVu Sans"]
 mpl.rcParams["font.size"] = 12
 mpl.rcParams["axes.titlesize"] = 12
-mpl.rcParams["axes.labelsize"] = 12
-mpl.rcParams["xtick.labelsize"] = 10
-mpl.rcParams["ytick.labelsize"] = 10
-mpl.rcParams["legend.fontsize"] = 10
+mpl.rcParams["axes.labelsize"] = 10
+mpl.rcParams["xtick.labelsize"] = 8
+mpl.rcParams["ytick.labelsize"] = 8
+mpl.rcParams["legend.fontsize"] = 8
+# LINE WEIGHTS / MARKER SIZES — pinned by Ali 2026-09-09. Keep identical to
+# chantier.figstyle.LINEWIDTH / MARKER_* (change one, change both).
+#   spines & tick marks 0.8 pt (tick length 3 pt) · data lines 1.2 pt
+#   patch/bar edges 0.8 pt · line-plot markers 4 pt diameter · error caps 2 pt
+# Scatter `s` has no rcParam: use s=6 (points^2), or chantier.figstyle.marker_s().
+mpl.rcParams["axes.linewidth"] = 0.8
+mpl.rcParams["xtick.major.width"] = 0.8
+mpl.rcParams["ytick.major.width"] = 0.8
+mpl.rcParams["xtick.minor.width"] = 0.6
+mpl.rcParams["ytick.minor.width"] = 0.6
+mpl.rcParams["xtick.major.size"] = 3.0
+mpl.rcParams["ytick.major.size"] = 3.0
+mpl.rcParams["lines.linewidth"] = 1.2
+mpl.rcParams["lines.markersize"] = 4.0
+mpl.rcParams["patch.linewidth"] = 0.8
+mpl.rcParams["grid.linewidth"] = 0.6
+mpl.rcParams["errorbar.capsize"] = 2.0
 # save text as text, not images
 # set default figsize to (4,3)
 mpl.rcParams["figure.figsize"] = (4, 3)
